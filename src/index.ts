@@ -6,6 +6,10 @@ import { z } from "zod";
 import { SentryApiClient } from "./api/sentryClient";
 import { IssueFormatter } from "./formatters/issueFormatter";
 import { ProjectFormatter } from "./formatters/projectFormatter";
+import {
+    exportIssueEventFieldsToFile,
+    exportIssueEventsToFile,
+} from "./utils/eventExport";
 import { ErrorHandler } from "./utils/errorHandler";
 
 // Validate environment variables
@@ -450,6 +454,176 @@ server.tool(
             return ErrorHandler.handleApiError(
                 error as Error,
                 "extract_issue_context_data"
+            );
+        }
+    }
+);
+
+server.tool(
+    "export_issue_events_to_file",
+    "Выгружает все события issue, начиная с даты since в UTC, в локальный JSONL-файл и возвращает путь к нему.",
+    {
+        issue_id_or_url: z
+            .string()
+            .describe(
+                "Either a full Sentry issue URL or just the numeric issue ID"
+            ),
+        organization_slug: z
+            .string()
+            .describe("The slug of the organization the issue belongs to"),
+        since: z
+            .string()
+            .describe(
+                "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
+            ),
+        output_directory: z
+            .string()
+            .optional()
+            .describe(
+                "Optional local directory relative to the MCP server working directory"
+            ),
+    },
+    async ({
+        issue_id_or_url,
+        organization_slug,
+        since,
+        output_directory,
+    }: {
+        issue_id_or_url: string;
+        organization_slug: string;
+        since: string;
+        output_directory?: string;
+    }) => {
+        try {
+            const exportResult = await exportIssueEventsToFile(apiClient, {
+                issueIdOrUrl: issue_id_or_url,
+                organizationSlug: organization_slug,
+                since,
+                outputDirectory: output_directory,
+            });
+
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: JSON.stringify(
+                            {
+                                issue_id: exportResult.issueContext.issueId,
+                                issue_title: exportResult.issueContext.issueTitle,
+                                organization_slug:
+                                    exportResult.issueContext.organizationSlug,
+                                project_slug:
+                                    exportResult.issueContext.projectSlug,
+                                since_utc: exportResult.issueContext.sinceUtc,
+                                scanned_event_count:
+                                    exportResult.scannedEventCount,
+                                matched_event_count:
+                                    exportResult.matchingEventCount,
+                                exported_event_count:
+                                    exportResult.processedEventCount,
+                                export_path: exportResult.exportPath,
+                                format: "jsonl",
+                            },
+                            null,
+                            2
+                        ),
+                    },
+                ],
+            };
+        } catch (error) {
+            return ErrorHandler.handleApiError(
+                error as Error,
+                "export_issue_events_to_file"
+            );
+        }
+    }
+);
+
+server.tool(
+    "extract_issue_event_fields_to_file",
+    "Извлекает поля из всех событий issue, начиная с даты since в UTC, сохраняет результат в локальный JSONL-файл и возвращает путь к нему. Каждая запись дополнительно включает eventTitle и exceptionMessage, если они есть в event payload.",
+    {
+        issue_id_or_url: z
+            .string()
+            .describe(
+                "Either a full Sentry issue URL or just the numeric issue ID"
+            ),
+        organization_slug: z
+            .string()
+            .describe("The slug of the organization the issue belongs to"),
+        since: z
+            .string()
+            .describe(
+                "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
+            ),
+        field_paths: z
+            .array(z.string())
+            .min(1)
+            .describe(
+                "Field names or dot paths to extract. Example: ['requestParams', 'contexts.trace.trace_id']"
+            ),
+        output_directory: z
+            .string()
+            .optional()
+            .describe(
+                "Optional local directory relative to the MCP server working directory"
+            ),
+    },
+    async ({
+        issue_id_or_url,
+        organization_slug,
+        since,
+        field_paths,
+        output_directory,
+    }: {
+        issue_id_or_url: string;
+        organization_slug: string;
+        since: string;
+        field_paths: string[];
+        output_directory?: string;
+    }) => {
+        try {
+            const exportResult = await exportIssueEventFieldsToFile(apiClient, {
+                issueIdOrUrl: issue_id_or_url,
+                organizationSlug: organization_slug,
+                since,
+                fieldPaths: field_paths,
+                outputDirectory: output_directory,
+            });
+
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: JSON.stringify(
+                            {
+                                issue_id: exportResult.issueContext.issueId,
+                                issue_title: exportResult.issueContext.issueTitle,
+                                organization_slug:
+                                    exportResult.issueContext.organizationSlug,
+                                project_slug:
+                                    exportResult.issueContext.projectSlug,
+                                since_utc: exportResult.issueContext.sinceUtc,
+                                scanned_event_count:
+                                    exportResult.scannedEventCount,
+                                matched_event_count:
+                                    exportResult.matchingEventCount,
+                                exported_event_count:
+                                    exportResult.processedEventCount,
+                                export_path: exportResult.exportPath,
+                                format: "jsonl",
+                                extracted_fields: field_paths,
+                            },
+                            null,
+                            2
+                        ),
+                    },
+                ],
+            };
+        } catch (error) {
+            return ErrorHandler.handleApiError(
+                error as Error,
+                "extract_issue_event_fields_to_file"
             );
         }
     }

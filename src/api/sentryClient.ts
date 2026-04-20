@@ -114,6 +114,99 @@ export class SentryApiClient {
         return this.get(full ? `${endpoint}?full=true` : endpoint);
     }
 
+    private buildQueryString(
+        queryParameters: Record<string, string | number | boolean | undefined>
+    ): string {
+        const urlSearchParameters = new URLSearchParams();
+
+        for (const [parameterName, parameterValue] of Object.entries(
+            queryParameters
+        )) {
+            if (parameterValue === undefined) {
+                continue;
+            }
+
+            urlSearchParameters.set(parameterName, String(parameterValue));
+        }
+
+        const queryString = urlSearchParameters.toString();
+        return queryString ? `?${queryString}` : "";
+    }
+
+    private extractCursorFromLinkHeader(
+        linkHeaderValue: string | null,
+        relationName: "next" | "previous"
+    ): string | null {
+        if (!linkHeaderValue) {
+            return null;
+        }
+
+        const linkParts = linkHeaderValue.split(",");
+        for (const linkPart of linkParts) {
+            if (!linkPart.includes(`rel="${relationName}"`)) {
+                continue;
+            }
+
+            if (linkPart.includes('results="false"')) {
+                return null;
+            }
+
+            const cursorMatch = linkPart.match(/cursor="([^"]+)"/);
+            if (cursorMatch?.[1]) {
+                return cursorMatch[1];
+            }
+        }
+
+        return null;
+    }
+
+    async getIssueEventsPage(
+        organizationSlug: string,
+        issueId: string,
+        options: {
+            cursor?: string;
+            full?: boolean;
+            perPage?: number;
+        } = {}
+    ): Promise<{
+        data: any[];
+        nextCursor: string | null;
+        previousCursor: string | null;
+    }> {
+        const queryString = this.buildQueryString({
+            cursor: options.cursor,
+            full: options.full ? "true" : undefined,
+            per_page: options.perPage,
+        });
+        const response = await this.makeRequest(
+            `/issues/${issueId}/events/${queryString}`,
+            {
+                method: "GET",
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+                `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+            );
+        }
+
+        const responseData = await response.json();
+
+        return {
+            data: Array.isArray(responseData) ? responseData : [],
+            nextCursor: this.extractCursorFromLinkHeader(
+                response.headers.get("link"),
+                "next"
+            ),
+            previousCursor: this.extractCursorFromLinkHeader(
+                response.headers.get("link"),
+                "previous"
+            ),
+        };
+    }
+
     async resolveShortId(organizationSlug: string, shortId: string) {
         return this.get(
             `/organizations/${organizationSlug}/shortids/${shortId}/`
@@ -150,5 +243,15 @@ export class SentryApiClient {
         // Then get the event from the project
         const endpoint = `/projects/${organizationSlug}/${projectSlug}/events/${eventId}/`;
         return this.get(endpoint);
+    }
+
+    async getProjectEvent(
+        organizationSlug: string,
+        projectSlug: string,
+        eventId: string
+    ): Promise<any> {
+        return this.get(
+            `/projects/${organizationSlug}/${projectSlug}/events/${eventId}/`
+        );
     }
 }
