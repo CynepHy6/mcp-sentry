@@ -1,5 +1,5 @@
-import { SentryProject } from "../../types";
-import { BaseFormatter, FormatOptions } from "./baseFormatter";
+import { SentryProject } from "../types.js";
+import { BaseFormatter, FormatOptions } from "./baseFormatter.js";
 
 export class ProjectFormatter extends BaseFormatter {
     constructor(options: FormatOptions) {

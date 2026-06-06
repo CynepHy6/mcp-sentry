@@ -1,62 +1,84 @@
-# MCP Sentry сервер
+# mcp-sentry
 
-Model Context Protocol (MCP) сервер для работы с Sentry API. Позволяет AI ассистентам получать и анализировать данные об ошибках, управлять проектами и мониторить производительность приложений.
+MCP-сервер для **Sentry API** в Cursor.
 
-## Требования
+## Быстрый старт (npx, без клона)
 
-- Node.js (v14+)
-- npm или yarn
-- Аккаунт Sentry с доступом к API
-- Токен аутентификации Sentry
-
-## Установка
-
-```bash
-npm install
-```
-
-## Настройка в Cursor
-
-Добавьте конфигурацию в настройки Cursor:
+1. Добавить в Cursor MCP (`~/.cursor/mcp.json` или project config):
 
 ```json
 {
-    "mcpServers": {
-        "sentry": {
-            "command": "npx",
-            "args": ["ts-node", "/path/to/mcp-sentry-ts/src/index.ts"],
-            "env": {
-                "SENTRY_AUTH": "<YOUR_AUTH_TOKEN>",
-                "SENTRY_HOST": "https://sentry.skyeng.tech"
-            }
-        }
+  "mcpServers": {
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "github:CynepHy6/mcp-sentry#semver:^1"],
+      "env": {
+        "SENTRY_AUTH": "your_sentry_auth_token",
+        "SENTRY_HOST": "https://sentry.example.com"
+      }
     }
+  }
 }
 ```
-### Переменные окружения
 
-- `SENTRY_AUTH` (обязательно): токен аутентификации Sentry
-- `SENTRY_HOST` (опционально): URL Sentry сервера (по умолчанию https://sentry.io)
+Креды передаются **только через `env`** в MCP-конфиге (файл `.env` рядом с репозиторием при npx не используется).
 
-## Основные инструменты
+| Переменная | Обязательна | По умолчанию |
+|------------|-------------|--------------|
+| `SENTRY_AUTH` | да | — |
+| `SENTRY_HOST` | нет | `https://sentry.io` |
+| `PROTOCOL` | нет | `https` |
 
-### list_projects
-Список проектов организации.
+2. Reload MCP в Cursor.
 
-### get_sentry_issue
-Получение детальной информации об issue.
-- `issue_id_or_url`: ID issue или полный URL
-- `organization_slug`: слаг организации
+### Версия в `args`
 
-### get_sentry_event
-Получение детальной информации о событии, включая Additional Data.
-- `issue_id_or_url`: ID issue или URL
-- `event_id`: ID события
-- `organization_slug`: слаг организации
+`npx` скачивает пакет из GitHub по адресу `github:CynepHy6/mcp-sentry`. Суффикс после `#` выбирает, **какую версию** установить:
 
-### list_issue_events
-Список событий для issue.
+- каждый релиз помечен git-тегом вида `v1.2.0` (история — в [CHANGELOG.md](CHANGELOG.md));
+- `npx` сохраняет установку в `~/.npm/_npx/<hash>/`, где hash зависит от строки в `args`.
 
-### extract_issue_context_data
-Извлечение данных контекста из всех событий issue.
+| Ref | Пример `args` | Когда использовать |
+|-----|---------------|-------------------|
+| диапазон `v1.x` | `["-y", "github:CynepHy6/mcp-sentry#semver:^1"]` | по умолчанию; при старте MCP подтягивает максимальный git-тег `v1.x` |
+| конкретный тег | `["-y", "github:CynepHy6/mcp-sentry#v1.2.0"]` | зафиксировать версию |
+| exact semver | `["-y", "github:CynepHy6/mcp-sentry#semver:1.2.0"]` | то же, через semver (ищет тег `v1.2.0`) |
 
+**Обновление:** с `#semver:^1` новый релиз `v1.x` обычно подтягивается при старте MCP — reload Cursor чаще всего достаточно. С `#v1.2.0` версия зафиксирована: смените ref или удалите sandbox. Если не помогло — `npx clear-npx-cache` и снова reload MCP.
+
+## Альтернатива: локальный клон
+
+```bash
+git clone https://github.com/CynepHy6/mcp-sentry.git
+cd mcp-sentry
+cp .env.example .env   # заполнить креды
+npm install && npm run compile
+```
+
+```json
+{
+  "mcpServers": {
+    "sentry": {
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-sentry/build/index.js"]
+    }
+  }
+}
+```
+
+Креды можно держать в `.env` в корне клонированного репозитория.
+
+## Что умеет
+
+- просмотр проектов организации;
+- получение issue и событий по ID или URL;
+- извлечение контекста из событий;
+- экспорт событий и полей в локальные JSONL-файлы.
+
+## Документация
+
+| Файл | Для кого |
+|------|----------|
+| [AGENTS.md](AGENTS.md) | разработка, workflows |
+| [CHANGELOG.md](CHANGELOG.md) | история релизов |
+| [mcp-config.example.json](mcp-config.example.json) | MCP-конфиг npx, диапазон `v1.x` (`#semver:^1`) |

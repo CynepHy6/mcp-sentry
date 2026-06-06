@@ -1,5 +1,5 @@
-import { SentryIssueDetailsResponse, SentryProjectIssue } from "../../types";
-import { BaseFormatter, FormatOptions } from "./baseFormatter";
+import { SentryIssueDetailsResponse, SentryProjectIssue } from "../types.js";
+import { BaseFormatter, FormatOptions } from "./baseFormatter.js";
 
 export class IssueFormatter extends BaseFormatter {
     constructor(options: FormatOptions) {

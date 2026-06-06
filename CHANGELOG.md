@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 - 2026-06-06
+
+- Репозиторий переименован в `mcp-sentry`; раскатка через `npx github:` и ветку `dist` как в `mcp-atlas`.
+- TypeScript компилируется в `build/`; скрипт сборки — `compile` (не `build`, npm/cli#4003).
+- CI на push в `master`: тесты, публикация `dist`, git-тег `v{version}`.
+- Добавлены `AGENTS.md`, `mcp-config.example.json`, `.env.example`, jest-тесты.
+
 ## 1.1.0 - 2026-04-20
 
 - Добавлен инструмент `export_issue_events_to_file` для выгрузки всех событий issue с указанной UTC-даты в локальный `JSONL`-файл с возвратом пути к файлу.

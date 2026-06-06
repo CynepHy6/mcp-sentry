@@ -1,6 +1,6 @@
 import { appendFile, mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { SentryApiClient } from "../api/sentryClient";
+import { SentryApiClient } from "../api/sentryClient.js";
 
 const DEFAULT_EXPORT_DIRECTORY = path.resolve(
     process.cwd(),

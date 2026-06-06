@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "sentry": {
+            "command": "npx",
+            "args": ["-y", "github:CynepHy6/mcp-sentry#semver:^1"],
+            "env": {
+                "SENTRY_AUTH": "your_sentry_auth_token",
+                "SENTRY_HOST": "https://sentry.example.com"
+            }
+        }
+    }
+}

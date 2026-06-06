@@ -1,16 +1,29 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env node
+import * as dotenv from "dotenv";
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config();
+try {
+    dotenv.config({ path: path.resolve(__dirname, "../.env") });
+} catch (e) {
+    console.error("Error loading .env file:", e);
+}
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SentryApiClient } from "./api/sentryClient";
-import { IssueFormatter } from "./formatters/issueFormatter";
-import { ProjectFormatter } from "./formatters/projectFormatter";
+import { SentryApiClient } from "./api/sentryClient.js";
+import { IssueFormatter } from "./formatters/issueFormatter.js";
+import { ProjectFormatter } from "./formatters/projectFormatter.js";
 import {
     exportIssueEventFieldsToFile,
     exportIssueEventsToFile,
-} from "./utils/eventExport";
-import { ErrorHandler } from "./utils/errorHandler";
+} from "./utils/eventExport.js";
+import { ErrorHandler } from "./utils/errorHandler.js";
 
 // Validate environment variables
 const SENTRY_AUTH = process.env.SENTRY_AUTH;
@@ -35,7 +48,7 @@ const apiClient = new SentryApiClient(sentryHost, SENTRY_AUTH);
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.0.0",
+    version: "1.2.0",
 });
 
 // List projects tool
