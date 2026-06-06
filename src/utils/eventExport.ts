@@ -3,7 +3,7 @@ import path from "path";
 import { SentrySdkClient } from "../api/sentrySdkClient.js";
 import {
     normalizeUtcDateString,
-    normalizeUtcUntilDateString,
+    resolveEffectiveUntilUtc,
 } from "./eventExportDateRange.js";
 
 const DEFAULT_EXPORT_DIRECTORY = path.resolve(
@@ -24,7 +24,7 @@ interface IssueExportContext extends IssueReference {
     issueTitle: string;
     projectSlug: string;
     sinceUtc: string;
-    untilUtc?: string;
+    untilUtc: string;
 }
 
 interface ExtractionMatch {
@@ -520,9 +520,9 @@ async function resolveIssueContext(
         issueReference.issueId,
     );
     const sinceUtc = normalizeUtcDateString(since);
-    const untilUtc = until ? normalizeUtcUntilDateString(until) : undefined;
+    const untilUtc = resolveEffectiveUntilUtc(until);
 
-    if (untilUtc && new Date(untilUtc) < new Date(sinceUtc)) {
+    if (new Date(untilUtc) < new Date(sinceUtc)) {
         throw new Error(
             `Invalid date range: until (${untilUtc}) is earlier than since (${sinceUtc})`,
         );
@@ -568,9 +568,7 @@ function createExportFilePath(
 
     const timestampLabel = new Date().toISOString().replace(/[:.]/g, "-");
     const sinceLabel = sanitizeFileNamePart(issueContext.sinceUtc);
-    const untilLabel = issueContext.untilUtc
-        ? `-until-${sanitizeFileNamePart(issueContext.untilUtc)}`
-        : "";
+    const untilLabel = `-until-${sanitizeFileNamePart(issueContext.untilUtc)}`;
     const issueLabel = sanitizeFileNamePart(issueContext.issueId);
 
     return path.join(

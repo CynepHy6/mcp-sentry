@@ -1,7 +1,9 @@
 import {
     buildIssueEventsListQuery,
+    defaultUtcUntilNow,
     normalizeUtcDateString,
     normalizeUtcUntilDateString,
+    resolveEffectiveUntilUtc,
 } from "../../src/utils/eventExportDateRange.js";
 
 describe("eventExportDateRange", () => {
@@ -30,12 +32,28 @@ describe("eventExportDateRange", () => {
         });
     });
 
-    it("builds SDK list query with start only when until is omitted", () => {
+    it("defaults end to now when until is omitted", () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date("2026-06-06T16:54:40.380Z"));
+
         expect(
             buildIssueEventsListQuery("2026-05-28T00:00:00.000Z"),
         ).toEqual({
             start: "2026-05-28T00:00:00.000Z",
+            end: "2026-06-06T16:54:40.380Z",
             per_page: 100,
         });
+
+        jest.useRealTimers();
+    });
+
+    it("resolveEffectiveUntilUtc uses now when until is omitted", () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date("2026-06-06T16:54:40.380Z"));
+
+        expect(resolveEffectiveUntilUtc()).toBe("2026-06-06T16:54:40.380Z");
+        expect(defaultUtcUntilNow()).toBe("2026-06-06T16:54:40.380Z");
+
+        jest.useRealTimers();
     });
 });

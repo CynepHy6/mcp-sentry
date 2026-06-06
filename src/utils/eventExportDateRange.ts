@@ -33,26 +33,26 @@ export function normalizeUtcUntilDateString(inputValue: string): string {
     return normalizeUtcDateString(inputValue);
 }
 
+/** Upper bound for open-ended export windows when `until` is omitted. */
+export function defaultUtcUntilNow(): string {
+    return new Date().toISOString();
+}
+
+export function resolveEffectiveUntilUtc(until?: string): string {
+    return until ? normalizeUtcUntilDateString(until) : defaultUtcUntilNow();
+}
+
 export function buildIssueEventsListQuery(
     sinceUtc: string,
     untilUtc?: string,
 ): {
     start: string;
-    end?: string;
+    end: string;
     per_page: number;
 } {
-    const query: {
-        start: string;
-        end?: string;
-        per_page: number;
-    } = {
+    return {
         start: sinceUtc,
+        end: untilUtc ?? defaultUtcUntilNow(),
         per_page: DEFAULT_ISSUE_EVENTS_PAGE_SIZE,
     };
-
-    if (untilUtc) {
-        query.end = untilUtc;
-    }
-
-    return query;
 }

@@ -48,7 +48,7 @@ const sentryClient = new SentrySdkClient(sentryHost, SENTRY_AUTH);
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.4.0",
+    version: "1.4.1",
 });
 
 // List projects tool
@@ -493,7 +493,7 @@ server.tool(
             .string()
             .optional()
             .describe(
-                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive"
+                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive. Defaults to current UTC time when omitted."
             ),
         output_directory: z
             .string()
@@ -583,7 +583,7 @@ server.tool(
             .string()
             .optional()
             .describe(
-                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive"
+                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive. Defaults to current UTC time when omitted."
             ),
         field_paths: z
             .array(z.string())

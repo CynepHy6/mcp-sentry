@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1 - 2026-06-06
+
+- Export-tools: если `until` не передан, верхняя граница окна — текущее UTC-время (`end` всегда уходит в `@sentry/api` `listAnIssue_sEvents`).
+
 ## 1.4.0 - 2026-06-06
 
 - Все MCP tools переведены на `@sentry/api`; единый `SentrySdkClient`.
