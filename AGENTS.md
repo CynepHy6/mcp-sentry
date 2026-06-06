@@ -63,13 +63,13 @@ node --version   # ожидается v22.x
 
 ```text
 src/
-  index.ts                    # регистрация MCP tools
-  api/sentryClient.ts         # HTTP-клиент (остальные tools)
-  api/sentrySdkExportClient.ts # @sentry/api для export-tools
-  api/sentryRetryFetch.ts     # retry поверх fetch для SDK
-  formatters/                 # markdown/plain formatters
-  utils/                      # errorHandler, eventExport, eventExportDateRange
-  types.ts                    # типы ответов Sentry API
+  index.ts                 # регистрация MCP tools
+  api/sentrySdkClient.ts   # @sentry/api — все tools
+  api/sentryRetry.ts       # retry-хелперы
+  api/sentryRetryFetch.ts  # retry поверх fetch для SDK
+  formatters/              # markdown/plain formatters
+  utils/                   # errorHandler, eventExport, eventExportDateRange
+  types.ts                 # типы ответов Sentry API
 tests/
   src/                  # unit-тесты utils
 ```

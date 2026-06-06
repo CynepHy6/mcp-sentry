@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { SentryProject } from "../types.js";
-import { SentryApiClient } from "../api/sentryClient.js";
+import { SentrySdkClient } from "../api/sentrySdkClient.js";
 import { IssueFormatter } from "../formatters/issueFormatter.js";
 import { ProjectFormatter } from "../formatters/projectFormatter.js";
 import { ErrorHandler } from "../utils/errorHandler.js";
 
-export function createProjectTools(apiClient: SentryApiClient) {
+export function createProjectTools(apiClient: SentrySdkClient) {
     return {
         list_projects: {
             description:

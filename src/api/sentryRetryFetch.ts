@@ -1,7 +1,7 @@
 import {
     computeRetryDelayMs,
     isRetryableSentryStatus,
-} from "./sentryClient.js";
+} from "./sentryRetry.js";
 
 const DEFAULT_MAX_RETRY_ATTEMPTS = 8;
 

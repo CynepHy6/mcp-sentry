@@ -16,8 +16,7 @@ try {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SentryApiClient } from "./api/sentryClient.js";
-import { SentrySdkExportClient } from "./api/sentrySdkExportClient.js";
+import { SentrySdkClient } from "./api/sentrySdkClient.js";
 import { IssueFormatter } from "./formatters/issueFormatter.js";
 import { ProjectFormatter } from "./formatters/projectFormatter.js";
 import {
@@ -43,14 +42,13 @@ if (
     sentryHost = `${PROTOCOL}://${sentryHost}`;
 }
 
-// Initialize API clients
-const apiClient = new SentryApiClient(sentryHost, SENTRY_AUTH);
-const exportClient = new SentrySdkExportClient(sentryHost, SENTRY_AUTH);
+// Initialize API client (@sentry/api)
+const sentryClient = new SentrySdkClient(sentryHost, SENTRY_AUTH);
 
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.3.0",
+    version: "1.4.0",
 });
 
 // List projects tool
@@ -80,7 +78,7 @@ server.tool(
         format: "plain" | "markdown";
     }) => {
         try {
-            const projects = await apiClient.getProjects(organization_slug);
+            const projects = await sentryClient.getProjects(organization_slug);
 
             const formatter = new ProjectFormatter({ format, view });
             const output = formatter.formatData(projects);
@@ -145,7 +143,7 @@ server.tool(
         format: "plain" | "markdown";
     }) => {
         try {
-            const issues = await apiClient.getProjectIssues(
+            const issues = await sentryClient.getProjectIssues(
                 organization_slug,
                 project_slug,
                 query
@@ -217,7 +215,7 @@ server.tool(
                 }
             }
 
-            const issue = await apiClient.getIssue(organization_slug, issueId);
+            const issue = await sentryClient.getIssue(organization_slug, issueId);
 
             const formatter = new IssueFormatter({ format, view });
             const output = formatter.formatIssueDetails(issue);
@@ -269,7 +267,7 @@ server.tool(
         format: "plain" | "markdown";
     }) => {
         try {
-            const events = await apiClient.getIssueEvents(
+            const events = await sentryClient.getIssueEvents(
                 organization_slug,
                 issue_id
             );
@@ -325,7 +323,7 @@ server.tool(
         format: "plain" | "markdown";
     }) => {
         try {
-            const data = await apiClient.resolveShortId(
+            const data = await sentryClient.resolveShortId(
                 organization_slug,
                 short_id
             );
@@ -394,7 +392,7 @@ server.tool(
         extract_fields: string[];
     }) => {
         try {
-            const events = await apiClient.getIssueEvents(
+            const events = await sentryClient.getIssueEvents(
                 organization_slug,
                 issue_id,
                 true
@@ -518,7 +516,7 @@ server.tool(
         output_directory?: string;
     }) => {
         try {
-            const exportResult = await exportIssueEventsToFile(exportClient, {
+            const exportResult = await exportIssueEventsToFile(sentryClient, {
                 issueIdOrUrl: issue_id_or_url,
                 organizationSlug: organization_slug,
                 since,
@@ -617,7 +615,7 @@ server.tool(
     }) => {
         try {
             const exportResult = await exportIssueEventFieldsToFile(
-                exportClient,
+                sentryClient,
                 {
                     issueIdOrUrl: issue_id_or_url,
                     organizationSlug: organization_slug,
@@ -743,7 +741,7 @@ server.tool(
                 }
             }
 
-            const event = await apiClient.getIssueEvent(
+            const event = await sentryClient.getIssueEvent(
                 organizationSlug,
                 issueId,
                 extractedEventId

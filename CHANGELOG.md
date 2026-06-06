@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 - 2026-06-06
+
+- Все MCP tools переведены на `@sentry/api`; единый `SentrySdkClient`.
+- Удалены `SentryApiClient`, `node-fetch` и ручной HTTP-слой.
+- Retry-хелперы вынесены в `sentryRetry.ts`.
+
 ## 1.3.0 - 2026-06-06
 
 - Export-tools переведены на официальный `@sentry/api` (`start`/`end` server-side, `retrieveAnEventForAProject`).

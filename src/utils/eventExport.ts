@@ -1,6 +1,6 @@
 import { appendFile, mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { SentrySdkExportClient } from "../api/sentrySdkExportClient.js";
+import { SentrySdkClient } from "../api/sentrySdkClient.js";
 import {
     normalizeUtcDateString,
     normalizeUtcUntilDateString,
@@ -505,7 +505,7 @@ async function mapWithConcurrency<TValue>(
 }
 
 async function resolveIssueContext(
-    exportClient: SentrySdkExportClient,
+    exportClient: SentrySdkClient,
     issueIdOrUrl: string,
     organizationSlug: string,
     since: string,
@@ -538,7 +538,7 @@ async function resolveIssueContext(
 }
 
 async function collectMatchingEventSummaries(
-    exportClient: SentrySdkExportClient,
+    exportClient: SentrySdkClient,
     issueContext: IssueExportContext,
 ): Promise<{
     eventSummaries: JsonRecord[];
@@ -628,7 +628,7 @@ async function prepareExportFile(exportPath: string): Promise<void> {
 }
 
 async function exportMatchingEvents(
-    exportClient: SentrySdkExportClient,
+    exportClient: SentrySdkClient,
     issueContext: IssueExportContext,
     matchingSummaries: JsonRecord[],
     exportPath: string,
@@ -672,7 +672,7 @@ async function exportMatchingEvents(
 }
 
 export async function exportIssueEventsToFile(
-    exportClient: SentrySdkExportClient,
+    exportClient: SentrySdkClient,
     inputValues: {
         issueIdOrUrl: string;
         organizationSlug: string;
@@ -717,7 +717,7 @@ export async function exportIssueEventsToFile(
 }
 
 export async function exportIssueEventFieldsToFile(
-    exportClient: SentrySdkExportClient,
+    exportClient: SentrySdkClient,
     inputValues: {
         issueIdOrUrl: string;
         organizationSlug: string;

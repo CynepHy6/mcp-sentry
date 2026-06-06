@@ -3,9 +3,9 @@ import {
     isRetryableSentryStatus,
     parseRateLimitResetMs,
     parseRetryAfterMs,
-} from "../../src/api/sentryClient.js";
+} from "../../src/api/sentryRetry.js";
 
-describe("sentryClient retry helpers", () => {
+describe("sentryRetry helpers", () => {
     it("marks rate-limit and transient upstream statuses as retryable", () => {
         expect(isRetryableSentryStatus(429)).toBe(true);
         expect(isRetryableSentryStatus(503)).toBe(true);
