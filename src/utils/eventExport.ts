@@ -1,13 +1,16 @@
 import { appendFile, mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { SentryApiClient } from "../api/sentryClient.js";
+import { SentrySdkExportClient } from "../api/sentrySdkExportClient.js";
+import {
+    normalizeUtcDateString,
+    normalizeUtcUntilDateString,
+} from "./eventExportDateRange.js";
 
 const DEFAULT_EXPORT_DIRECTORY = path.resolve(
     process.cwd(),
     "tmp",
     "sentry-exports",
 );
-const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_FETCH_CONCURRENCY = 10;
 
 type JsonRecord = Record<string, unknown>;
@@ -41,39 +44,6 @@ interface FetchIssueEventsResult {
     scannedEventCount: number;
     processedEventCount: number;
     exportPath: string;
-}
-
-function normalizeUtcDateString(inputValue: string): string {
-    const plainDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-    const zonelessDateTimePattern =
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/;
-
-    let normalizedValue = inputValue.trim();
-
-    if (plainDatePattern.test(normalizedValue)) {
-        normalizedValue = `${normalizedValue}T00:00:00.000Z`;
-    } else if (zonelessDateTimePattern.test(normalizedValue)) {
-        normalizedValue = `${normalizedValue}Z`;
-    }
-
-    const parsedDate = new Date(normalizedValue);
-    if (Number.isNaN(parsedDate.getTime())) {
-        throw new Error(
-            `Invalid since value "${inputValue}". Use YYYY-MM-DD or an ISO timestamp in UTC.`,
-        );
-    }
-
-    return parsedDate.toISOString();
-}
-
-function normalizeUtcUntilDateString(inputValue: string): string {
-    const plainDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-    if (plainDatePattern.test(inputValue.trim())) {
-        return `${inputValue.trim()}T23:59:59.999Z`;
-    }
-
-    return normalizeUtcDateString(inputValue);
 }
 
 function sanitizeFileNamePart(inputValue: string): string {
@@ -535,7 +505,7 @@ async function mapWithConcurrency<TValue>(
 }
 
 async function resolveIssueContext(
-    apiClient: SentryApiClient,
+    exportClient: SentrySdkExportClient,
     issueIdOrUrl: string,
     organizationSlug: string,
     since: string,
@@ -545,7 +515,8 @@ async function resolveIssueContext(
         issueIdOrUrl,
         organizationSlug,
     );
-    const issueDetails = await apiClient.getIssueDetails(
+    const issueDetails = await exportClient.getIssueDetails(
+        issueReference.organizationSlug,
         issueReference.issueId,
     );
     const sinceUtc = normalizeUtcDateString(since);
@@ -567,74 +538,22 @@ async function resolveIssueContext(
 }
 
 async function collectMatchingEventSummaries(
-    apiClient: SentryApiClient,
+    exportClient: SentrySdkExportClient,
     issueContext: IssueExportContext,
 ): Promise<{
     eventSummaries: JsonRecord[];
     scannedEventCount: number;
 }> {
-    const sinceDate = new Date(issueContext.sinceUtc);
-    const untilDate = issueContext.untilUtc
-        ? new Date(issueContext.untilUtc)
-        : null;
-    const matchingSummaries: JsonRecord[] = [];
-    let paginationCursor: string | null = null;
-    let scannedEventCount = 0;
-
-    while (true) {
-        const eventsPage = await apiClient.getIssueEventsPage(
-            issueContext.organizationSlug,
-            issueContext.issueId,
-            {
-                cursor: paginationCursor || undefined,
-                perPage: DEFAULT_PAGE_SIZE,
-            },
-        );
-
-        if (eventsPage.data.length === 0) {
-            break;
-        }
-
-        scannedEventCount += eventsPage.data.length;
-        const pageEventTimestamps: Date[] = [];
-
-        for (const eventSummaryValue of eventsPage.data) {
-            const eventSummary = eventSummaryValue as JsonRecord;
-            const dateCreatedValue = eventSummary.dateCreated;
-            const eventTimestamp = new Date(String(dateCreatedValue));
-
-            if (Number.isNaN(eventTimestamp.getTime())) {
-                matchingSummaries.push(eventSummary);
-                continue;
-            }
-
-            pageEventTimestamps.push(eventTimestamp);
-
-            if (untilDate && eventTimestamp > untilDate) {
-                continue;
-            }
-
-            if (eventTimestamp >= sinceDate) {
-                matchingSummaries.push(eventSummary);
-            }
-        }
-
-        const allEventsOlderThanSince =
-            pageEventTimestamps.length > 0 &&
-            pageEventTimestamps.every(
-                (eventTimestamp) => eventTimestamp < sinceDate,
-            );
-
-        if (!eventsPage.nextCursor || allEventsOlderThanSince) {
-            break;
-        }
-
-        paginationCursor = eventsPage.nextCursor;
-    }
+    const eventSummaries = await exportClient.listIssueEventSummaries({
+        organizationSlug: issueContext.organizationSlug,
+        issueId: issueContext.issueId,
+        sinceUtc: issueContext.sinceUtc,
+        untilUtc: issueContext.untilUtc,
+    });
 
     return {
-        eventSummaries: matchingSummaries,
-        scannedEventCount,
+        eventSummaries,
+        scannedEventCount: eventSummaries.length,
     };
 }
 
@@ -709,7 +628,7 @@ async function prepareExportFile(exportPath: string): Promise<void> {
 }
 
 async function exportMatchingEvents(
-    apiClient: SentryApiClient,
+    exportClient: SentrySdkExportClient,
     issueContext: IssueExportContext,
     matchingSummaries: JsonRecord[],
     exportPath: string,
@@ -730,11 +649,11 @@ async function exportMatchingEvents(
                 return;
             }
 
-            const eventPayload = (await apiClient.getProjectEvent(
+            const eventPayload = await exportClient.getProjectEvent(
                 issueContext.organizationSlug,
                 issueContext.projectSlug,
                 eventIdentifier,
-            )) as JsonRecord;
+            );
 
             const exportLine = lineFactory(eventPayload);
             if (exportLine) {
@@ -753,7 +672,7 @@ async function exportMatchingEvents(
 }
 
 export async function exportIssueEventsToFile(
-    apiClient: SentryApiClient,
+    exportClient: SentrySdkExportClient,
     inputValues: {
         issueIdOrUrl: string;
         organizationSlug: string;
@@ -763,7 +682,7 @@ export async function exportIssueEventsToFile(
     },
 ): Promise<FetchIssueEventsResult> {
     const issueContext = await resolveIssueContext(
-        apiClient,
+        exportClient,
         inputValues.issueIdOrUrl,
         inputValues.organizationSlug,
         inputValues.since,
@@ -778,10 +697,10 @@ export async function exportIssueEventsToFile(
     await prepareExportFile(exportPath);
 
     const { eventSummaries, scannedEventCount } =
-        await collectMatchingEventSummaries(apiClient, issueContext);
+        await collectMatchingEventSummaries(exportClient, issueContext);
 
     const processedEventCount = await exportMatchingEvents(
-        apiClient,
+        exportClient,
         issueContext,
         eventSummaries,
         exportPath,
@@ -798,7 +717,7 @@ export async function exportIssueEventsToFile(
 }
 
 export async function exportIssueEventFieldsToFile(
-    apiClient: SentryApiClient,
+    exportClient: SentrySdkExportClient,
     inputValues: {
         issueIdOrUrl: string;
         organizationSlug: string;
@@ -809,7 +728,7 @@ export async function exportIssueEventFieldsToFile(
     },
 ): Promise<FetchIssueEventsResult> {
     const issueContext = await resolveIssueContext(
-        apiClient,
+        exportClient,
         inputValues.issueIdOrUrl,
         inputValues.organizationSlug,
         inputValues.since,
@@ -824,10 +743,10 @@ export async function exportIssueEventFieldsToFile(
     await prepareExportFile(exportPath);
 
     const { eventSummaries, scannedEventCount } =
-        await collectMatchingEventSummaries(apiClient, issueContext);
+        await collectMatchingEventSummaries(exportClient, issueContext);
 
     const processedEventCount = await exportMatchingEvents(
-        apiClient,
+        exportClient,
         issueContext,
         eventSummaries,
         exportPath,

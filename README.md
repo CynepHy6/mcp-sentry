@@ -2,6 +2,8 @@
 
 MCP-сервер для **Sentry API** в Cursor.
 
+**Требования:** Node.js **≥ 22** (для будущей миграции на `@sentry/api` и CI). В репозитории есть `.nvmrc` — при работе из клона: `nvm use`.
+
 ## Быстрый старт (npx, без клона)
 
 1. Добавить в Cursor MCP (`~/.cursor/mcp.json` или project config):
@@ -51,6 +53,7 @@ MCP-сервер для **Sentry API** в Cursor.
 ```bash
 git clone https://github.com/CynepHy6/mcp-sentry.git
 cd mcp-sentry
+nvm use                # Node 22 из .nvmrc
 cp .env.example .env   # заполнить креды
 npm install && npm run compile
 ```

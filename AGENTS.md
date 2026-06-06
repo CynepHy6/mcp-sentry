@@ -1,8 +1,8 @@
 # mcp-sentry — инструкции для агента
 
-MCP-сервер для Sentry API. Точка входа — `src/index.ts`. После правок: `npm run compile`, **поднять `version` в `package.json`**, push в `master` (CI → `dist` + git-тег `v{version}`) и reload MCP в Cursor.
+MCP-сервер для Sentry API. Точка входа — `src/index.ts`. **Node.js ≥ 22** (`engines`, CI, `.nvmrc`). После правок: `npm run compile`, **поднять `version` в `package.json`**, push в `master` (CI → `dist` + git-тег `v{version}`) и reload MCP в Cursor.
 
-Подробности для людей — [README.md](README.md). История версий — [CHANGELOG.md](CHANGELOG.md).
+Подробности для людей — [README.md](README.md). История версий — [CHANGELOG.md](CHANGELOG.md). План апгрейда на `@sentry/api` — [sentry-api-upgrade.md](sentry-api-upgrade.md).
 
 ## Конфигурация
 
@@ -33,11 +33,25 @@ MCP-сервер для Sentry API. Точка входа — `src/index.ts`. П
 "github:CynepHy6/mcp-sentry#semver:1.2.0"
 ```
 
+### Node.js (nvm)
+
+В корне репозитория — `.nvmrc` с версией **22**. Перед `npm install` / `compile` / `test`:
+
+```bash
+nvm use          # читает .nvmrc
+node --version   # ожидается v22.x
+```
+
+Если Node 22 ещё не установлен: `nvm install 22`. Чтобы не переключать вручную в каждой сессии: `nvm alias default 22`.
+
+**Важно:** `/usr/bin/node` может оставаться на 20 — для разработки опираться на `nvm use`, не на системный `node`.
+
 ### Локальный клон
 
 - `git clone https://github.com/CynepHy6/mcp-sentry.git`
+- `nvm use` (см. выше)
 - `.env` в корне репозитория (см. `.env.example`). `index.ts` подхватывает его через `dotenv` из `build/` → `../.env`.
-- Cursor MCP: `node` + `build/index.js`; переменные можно задать в `env` блока MCP или только в `.env`.
+- Cursor MCP: `node` + `build/index.js`; переменные можно задать в `env` блока MCP или только в `.env`. Для локального клона в `command` лучше абсолютный путь к node из nvm, например `~/.nvm/versions/node/v22.22.3/bin/node`, иначе Cursor может подхватить системный Node 20.
 
 | Переменная | Обязательна | По умолчанию |
 |------------|-------------|--------------|
@@ -49,11 +63,13 @@ MCP-сервер для Sentry API. Точка входа — `src/index.ts`. П
 
 ```text
 src/
-  index.ts              # регистрация MCP tools
-  api/sentryClient.ts   # HTTP-клиент Sentry API
-  formatters/           # markdown/plain formatters
-  utils/                # errorHandler, eventExport
-  types.ts              # типы ответов Sentry API
+  index.ts                    # регистрация MCP tools
+  api/sentryClient.ts         # HTTP-клиент (остальные tools)
+  api/sentrySdkExportClient.ts # @sentry/api для export-tools
+  api/sentryRetryFetch.ts     # retry поверх fetch для SDK
+  formatters/                 # markdown/plain formatters
+  utils/                      # errorHandler, eventExport, eventExportDateRange
+  types.ts                    # типы ответов Sentry API
 tests/
   src/                  # unit-тесты utils
 ```
@@ -73,6 +89,7 @@ tests/
 ## Отладка
 
 ```bash
+nvm use
 npm run compile
 npm test
 ```

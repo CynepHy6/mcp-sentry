@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 - 2026-06-06
+
+- Export-tools переведены на официальный `@sentry/api` (`start`/`end` server-side, `retrieveAnEventForAProject`).
+- Добавлен `SentrySdkExportClient` с retry-fetch поверх SDK; остальные tools пока на `SentryApiClient`.
+
+## 1.2.2 - 2026-06-06
+
+- Минимальная версия Node.js поднята до **22** (`engines`, CI, `.nvmrc`) — подготовка к `@sentry/api`.
+
 ## 1.2.1 - 2026-06-06
 
 - Добавлен retry для Sentry API на `429` и `502/503/504` с учётом `Retry-After` и `X-Sentry-Rate-Limit-Reset`.

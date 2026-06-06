@@ -17,6 +17,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { SentryApiClient } from "./api/sentryClient.js";
+import { SentrySdkExportClient } from "./api/sentrySdkExportClient.js";
 import { IssueFormatter } from "./formatters/issueFormatter.js";
 import { ProjectFormatter } from "./formatters/projectFormatter.js";
 import {
@@ -42,13 +43,14 @@ if (
     sentryHost = `${PROTOCOL}://${sentryHost}`;
 }
 
-// Initialize API client
+// Initialize API clients
 const apiClient = new SentryApiClient(sentryHost, SENTRY_AUTH);
+const exportClient = new SentrySdkExportClient(sentryHost, SENTRY_AUTH);
 
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.2.1",
+    version: "1.3.0",
 });
 
 // List projects tool
@@ -516,7 +518,7 @@ server.tool(
         output_directory?: string;
     }) => {
         try {
-            const exportResult = await exportIssueEventsToFile(apiClient, {
+            const exportResult = await exportIssueEventsToFile(exportClient, {
                 issueIdOrUrl: issue_id_or_url,
                 organizationSlug: organization_slug,
                 since,
@@ -614,14 +616,17 @@ server.tool(
         output_directory?: string;
     }) => {
         try {
-            const exportResult = await exportIssueEventFieldsToFile(apiClient, {
-                issueIdOrUrl: issue_id_or_url,
-                organizationSlug: organization_slug,
-                since,
-                until,
-                fieldPaths: field_paths,
-                outputDirectory: output_directory,
-            });
+            const exportResult = await exportIssueEventFieldsToFile(
+                exportClient,
+                {
+                    issueIdOrUrl: issue_id_or_url,
+                    organizationSlug: organization_slug,
+                    since,
+                    until,
+                    fieldPaths: field_paths,
+                    outputDirectory: output_directory,
+                },
+            );
 
             return {
                 content: [

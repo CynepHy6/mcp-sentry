@@ -1,0 +1,41 @@
+import {
+    buildIssueEventsListQuery,
+    normalizeUtcDateString,
+    normalizeUtcUntilDateString,
+} from "../../src/utils/eventExportDateRange.js";
+
+describe("eventExportDateRange", () => {
+    it("normalizes plain date since to UTC start of day", () => {
+        expect(normalizeUtcDateString("2026-05-28")).toBe(
+            "2026-05-28T00:00:00.000Z",
+        );
+    });
+
+    it("normalizes plain date until to UTC end of day", () => {
+        expect(normalizeUtcUntilDateString("2026-05-28")).toBe(
+            "2026-05-28T23:59:59.999Z",
+        );
+    });
+
+    it("builds SDK list query with start and end", () => {
+        expect(
+            buildIssueEventsListQuery(
+                "2026-05-28T00:00:00.000Z",
+                "2026-05-28T23:59:59.999Z",
+            ),
+        ).toEqual({
+            start: "2026-05-28T00:00:00.000Z",
+            end: "2026-05-28T23:59:59.999Z",
+            per_page: 100,
+        });
+    });
+
+    it("builds SDK list query with start only when until is omitted", () => {
+        expect(
+            buildIssueEventsListQuery("2026-05-28T00:00:00.000Z"),
+        ).toEqual({
+            start: "2026-05-28T00:00:00.000Z",
+            per_page: 100,
+        });
+    });
+});
