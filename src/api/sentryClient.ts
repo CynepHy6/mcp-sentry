@@ -1,4 +1,70 @@
-import fetch, { RequestInit } from "node-fetch";
+import fetch, { RequestInit, Response } from "node-fetch";
+
+const DEFAULT_MAX_RETRY_ATTEMPTS = 8;
+const DEFAULT_INITIAL_RETRY_DELAY_MS = 1000;
+const DEFAULT_MAX_RETRY_DELAY_MS = 30_000;
+
+export function isRetryableSentryStatus(status: number): boolean {
+    return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+export function parseRetryAfterMs(
+    retryAfterHeader: string | null
+): number | null {
+    if (!retryAfterHeader) {
+        return null;
+    }
+
+    const retryAfterSeconds = Number(retryAfterHeader);
+    if (!Number.isNaN(retryAfterSeconds)) {
+        return Math.max(0, retryAfterSeconds * 1000);
+    }
+
+    const retryAfterDate = Date.parse(retryAfterHeader);
+    if (!Number.isNaN(retryAfterDate)) {
+        return Math.max(0, retryAfterDate - Date.now());
+    }
+
+    return null;
+}
+
+export function parseRateLimitResetMs(
+    resetHeader: string | null
+): number | null {
+    if (!resetHeader) {
+        return null;
+    }
+
+    const resetUnixSeconds = Number(resetHeader);
+    if (Number.isNaN(resetUnixSeconds)) {
+        return null;
+    }
+
+    return Math.max(0, resetUnixSeconds * 1000 - Date.now());
+}
+
+export function computeRetryDelayMs(
+    attemptIndex: number,
+    response: { headers: { get(name: string): string | null } }
+): number {
+    const retryAfterDelay = parseRetryAfterMs(
+        response.headers.get("Retry-After")
+    );
+    if (retryAfterDelay !== null) {
+        return Math.min(retryAfterDelay, DEFAULT_MAX_RETRY_DELAY_MS);
+    }
+
+    const resetDelay = parseRateLimitResetMs(
+        response.headers.get("X-Sentry-Rate-Limit-Reset")
+    );
+    if (resetDelay !== null && resetDelay > 0) {
+        return Math.min(resetDelay, DEFAULT_MAX_RETRY_DELAY_MS);
+    }
+
+    const exponentialDelay =
+        DEFAULT_INITIAL_RETRY_DELAY_MS * 2 ** attemptIndex;
+    return Math.min(exponentialDelay, DEFAULT_MAX_RETRY_DELAY_MS);
+}
 
 export class SentryApiClient {
     private baseUrl: string;
@@ -9,10 +75,14 @@ export class SentryApiClient {
         this.authToken = authToken;
     }
 
+    private async sleep(delayMs: number): Promise<void> {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
     private async makeRequest(
         endpoint: string,
         options: RequestInit = {}
-    ): Promise<any> {
+    ): Promise<Response> {
         const url = `${this.baseUrl}/api/0${endpoint}`;
 
         const headers: Record<string, string> = {
@@ -29,9 +99,30 @@ export class SentryApiClient {
             headers,
         };
 
-        const response = await fetch(url, requestOptions);
+        for (let attemptIndex = 0; attemptIndex < DEFAULT_MAX_RETRY_ATTEMPTS; attemptIndex += 1) {
+            const response = await fetch(url, requestOptions);
+            const isLastAttempt =
+                attemptIndex === DEFAULT_MAX_RETRY_ATTEMPTS - 1;
 
-        return response;
+            if (
+                response.ok ||
+                !isRetryableSentryStatus(response.status) ||
+                isLastAttempt
+            ) {
+                return response;
+            }
+
+            const retryDelayMs = computeRetryDelayMs(attemptIndex, response);
+            console.error(
+                `Sentry API ${response.status} on ${endpoint}, retry ${
+                    attemptIndex + 1
+                }/${DEFAULT_MAX_RETRY_ATTEMPTS - 1} in ${retryDelayMs}ms`
+            );
+            await response.text();
+            await this.sleep(retryDelayMs);
+        }
+
+        return fetch(url, requestOptions);
     }
 
     async get(endpoint: string): Promise<any> {
@@ -103,6 +194,10 @@ export class SentryApiClient {
         return this.get(
             `/organizations/${organizationSlug}/issues/${issueId}/`
         );
+    }
+
+    async getIssueDetails(issueId: string) {
+        return this.get(`/issues/${issueId}/`);
     }
 
     async getIssueEvents(
@@ -236,11 +331,9 @@ export class SentryApiClient {
         issueId: string,
         eventId: string
     ): Promise<any> {
-        // First get the issue to find which project it belongs to
         const issue = await this.getIssue(organizationSlug, issueId);
         const projectSlug = issue.project.slug;
 
-        // Then get the event from the project
         const endpoint = `/projects/${organizationSlug}/${projectSlug}/events/${eventId}/`;
         return this.get(endpoint);
     }

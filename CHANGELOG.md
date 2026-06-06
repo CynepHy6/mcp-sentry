@@ -1,8 +1,16 @@
 # Changelog
 
+## 1.2.1 - 2026-06-06
+
+- Добавлен retry для Sentry API на `429` и `502/503/504` с учётом `Retry-After` и `X-Sentry-Rate-Limit-Reset`.
+- Параллельная загрузка событий в export-tools увеличена с 5 до 10.
+- Добавлен параметр `until` для export-tools (день `YYYY-MM-DD` = конец суток inclusive).
+- Исправлена пагинация при `until`: листание продолжается через события новее верхней границы.
+- `resolveIssueContext` использует `/issues/{id}/` вместо organization-scoped endpoint.
+
 ## 1.2.0 - 2026-06-06
 
-- Репозиторий переименован в `mcp-sentry`; раскатка через `npx github:` и ветку `dist` как в `mcp-atlas`.
+- Репозиторий переименован в `mcp-sentry`; раскатка через `npx github:` и ветку `dist`
 - TypeScript компилируется в `build/`; скрипт сборки — `compile` (не `build`, npm/cli#4003).
 - CI на push в `master`: тесты, публикация `dist`, git-тег `v{version}`.
 - Добавлены `AGENTS.md`, `mcp-config.example.json`, `.env.example`, jest-тесты.

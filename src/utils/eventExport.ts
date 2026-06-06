@@ -5,10 +5,10 @@ import { SentryApiClient } from "../api/sentryClient.js";
 const DEFAULT_EXPORT_DIRECTORY = path.resolve(
     process.cwd(),
     "tmp",
-    "sentry-exports"
+    "sentry-exports",
 );
 const DEFAULT_PAGE_SIZE = 100;
-const DEFAULT_FETCH_CONCURRENCY = 5;
+const DEFAULT_FETCH_CONCURRENCY = 10;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -21,6 +21,7 @@ interface IssueExportContext extends IssueReference {
     issueTitle: string;
     projectSlug: string;
     sinceUtc: string;
+    untilUtc?: string;
 }
 
 interface ExtractionMatch {
@@ -58,11 +59,21 @@ function normalizeUtcDateString(inputValue: string): string {
     const parsedDate = new Date(normalizedValue);
     if (Number.isNaN(parsedDate.getTime())) {
         throw new Error(
-            `Invalid since value "${inputValue}". Use YYYY-MM-DD or an ISO timestamp in UTC.`
+            `Invalid since value "${inputValue}". Use YYYY-MM-DD or an ISO timestamp in UTC.`,
         );
     }
 
     return parsedDate.toISOString();
+}
+
+function normalizeUtcUntilDateString(inputValue: string): string {
+    const plainDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (plainDatePattern.test(inputValue.trim())) {
+        return `${inputValue.trim()}T23:59:59.999Z`;
+    }
+
+    return normalizeUtcDateString(inputValue);
 }
 
 function sanitizeFileNamePart(inputValue: string): string {
@@ -71,7 +82,7 @@ function sanitizeFileNamePart(inputValue: string): string {
 
 function extractIssueReference(
     issueIdOrUrl: string,
-    organizationSlug: string
+    organizationSlug: string,
 ): IssueReference {
     if (!issueIdOrUrl.startsWith("http")) {
         return {
@@ -225,10 +236,10 @@ function collectUniqueStringValues(inputValues: unknown[]): string[] {
 
 function getExceptionMessageField(
     eventPayload: JsonRecord,
-    additionalData: JsonRecord
+    additionalData: JsonRecord,
 ): DerivedEventTextField {
     const explicitExceptionMessage = normalizeStringValue(
-        additionalData.exceptionMessage
+        additionalData.exceptionMessage,
     );
     if (explicitExceptionMessage) {
         return {
@@ -244,7 +255,11 @@ function getExceptionMessageField(
     }
 
     const exceptionValues: string[] = [];
-    for (let entryIndex = 0; entryIndex < entriesValue.length; entryIndex += 1) {
+    for (
+        let entryIndex = 0;
+        entryIndex < entriesValue.length;
+        entryIndex += 1
+    ) {
         const entryValue = entriesValue[entryIndex];
         if (!entryValue || typeof entryValue !== "object") {
             continue;
@@ -276,7 +291,7 @@ function getExceptionMessageField(
             }
 
             const normalizedValue = normalizeStringValue(
-                (exceptionValue as JsonRecord).value
+                (exceptionValue as JsonRecord).value,
             );
             if (normalizedValue) {
                 exceptionValues.push(normalizedValue);
@@ -333,7 +348,7 @@ function recursiveKeySearch(
     keyName: string,
     sourcePath: string,
     visitedObjects: WeakSet<object>,
-    matches: ExtractionMatch[]
+    matches: ExtractionMatch[],
 ): void {
     if (targetValue === null || targetValue === undefined) {
         return;
@@ -346,7 +361,7 @@ function recursiveKeySearch(
                 keyName,
                 `${sourcePath}[${arrayIndex}]`,
                 visitedObjects,
-                matches
+                matches,
             );
         });
         return;
@@ -376,7 +391,7 @@ function recursiveKeySearch(
             keyName,
             childPath,
             visitedObjects,
-            matches
+            matches,
         );
     }
 }
@@ -386,7 +401,7 @@ function deduplicateMatches(matches: ExtractionMatch[]): ExtractionMatch[] {
 
     return matches.filter((matchValue) => {
         const matchKey = `${matchValue.sourcePath}:${JSON.stringify(
-            matchValue.value
+            matchValue.value,
         )}`;
 
         if (seenMatches.has(matchKey)) {
@@ -400,7 +415,7 @@ function deduplicateMatches(matches: ExtractionMatch[]): ExtractionMatch[] {
 
 function extractFieldsFromEvent(
     eventPayload: JsonRecord,
-    fieldPaths: string[]
+    fieldPaths: string[],
 ): {
     extractedFields: Record<string, unknown>;
     sourcePaths: Record<string, string[]>;
@@ -420,7 +435,7 @@ function extractFieldsFromEvent(
 
     const exceptionMessageField = getExceptionMessageField(
         eventPayload,
-        additionalData
+        additionalData,
     );
     if (exceptionMessageField.value) {
         derivedFields.exceptionMessage = exceptionMessageField.value;
@@ -466,7 +481,7 @@ function extractFieldsFromEvent(
                     fieldPath,
                     searchTarget.name,
                     visitedObjects,
-                    matches
+                    matches,
                 );
             }
         }
@@ -477,7 +492,7 @@ function extractFieldsFromEvent(
         }
 
         sourcePaths[fieldPath] = uniqueMatches.map(
-            (matchValue) => matchValue.sourcePath
+            (matchValue) => matchValue.sourcePath,
         );
         extractedFields[fieldPath] =
             uniqueMatches.length === 1
@@ -496,7 +511,7 @@ function extractFieldsFromEvent(
 async function mapWithConcurrency<TValue>(
     inputValues: TValue[],
     concurrencyLimit: number,
-    mapperFunction: (inputValue: TValue, index: number) => Promise<void>
+    mapperFunction: (inputValue: TValue, index: number) => Promise<void>,
 ): Promise<void> {
     let currentIndex = 0;
 
@@ -515,7 +530,7 @@ async function mapWithConcurrency<TValue>(
 
     const workerCount = Math.min(concurrencyLimit, inputValues.length);
     await Promise.all(
-        Array.from({ length: workerCount }, () => workerFunction())
+        Array.from({ length: workerCount }, () => workerFunction()),
     );
 }
 
@@ -523,30 +538,45 @@ async function resolveIssueContext(
     apiClient: SentryApiClient,
     issueIdOrUrl: string,
     organizationSlug: string,
-    since: string
+    since: string,
+    until?: string,
 ): Promise<IssueExportContext> {
-    const issueReference = extractIssueReference(issueIdOrUrl, organizationSlug);
-    const issueDetails = await apiClient.getIssue(
-        issueReference.organizationSlug,
-        issueReference.issueId
+    const issueReference = extractIssueReference(
+        issueIdOrUrl,
+        organizationSlug,
     );
+    const issueDetails = await apiClient.getIssueDetails(
+        issueReference.issueId,
+    );
+    const sinceUtc = normalizeUtcDateString(since);
+    const untilUtc = until ? normalizeUtcUntilDateString(until) : undefined;
+
+    if (untilUtc && new Date(untilUtc) < new Date(sinceUtc)) {
+        throw new Error(
+            `Invalid date range: until (${untilUtc}) is earlier than since (${sinceUtc})`,
+        );
+    }
 
     return {
         ...issueReference,
         issueTitle: issueDetails.title,
         projectSlug: issueDetails.project.slug,
-        sinceUtc: normalizeUtcDateString(since),
+        sinceUtc,
+        untilUtc,
     };
 }
 
 async function collectMatchingEventSummaries(
     apiClient: SentryApiClient,
-    issueContext: IssueExportContext
+    issueContext: IssueExportContext,
 ): Promise<{
     eventSummaries: JsonRecord[];
     scannedEventCount: number;
 }> {
     const sinceDate = new Date(issueContext.sinceUtc);
+    const untilDate = issueContext.untilUtc
+        ? new Date(issueContext.untilUtc)
+        : null;
     const matchingSummaries: JsonRecord[] = [];
     let paginationCursor: string | null = null;
     let scannedEventCount = 0;
@@ -558,7 +588,7 @@ async function collectMatchingEventSummaries(
             {
                 cursor: paginationCursor || undefined,
                 perPage: DEFAULT_PAGE_SIZE,
-            }
+            },
         );
 
         if (eventsPage.data.length === 0) {
@@ -566,7 +596,7 @@ async function collectMatchingEventSummaries(
         }
 
         scannedEventCount += eventsPage.data.length;
-        let pageHasEventsSinceBoundary = false;
+        const pageEventTimestamps: Date[] = [];
 
         for (const eventSummaryValue of eventsPage.data) {
             const eventSummary = eventSummaryValue as JsonRecord;
@@ -575,17 +605,27 @@ async function collectMatchingEventSummaries(
 
             if (Number.isNaN(eventTimestamp.getTime())) {
                 matchingSummaries.push(eventSummary);
-                pageHasEventsSinceBoundary = true;
+                continue;
+            }
+
+            pageEventTimestamps.push(eventTimestamp);
+
+            if (untilDate && eventTimestamp > untilDate) {
                 continue;
             }
 
             if (eventTimestamp >= sinceDate) {
                 matchingSummaries.push(eventSummary);
-                pageHasEventsSinceBoundary = true;
             }
         }
 
-        if (!eventsPage.nextCursor || !pageHasEventsSinceBoundary) {
+        const allEventsOlderThanSince =
+            pageEventTimestamps.length > 0 &&
+            pageEventTimestamps.every(
+                (eventTimestamp) => eventTimestamp < sinceDate,
+            );
+
+        if (!eventsPage.nextCursor || allEventsOlderThanSince) {
             break;
         }
 
@@ -601,7 +641,7 @@ async function collectMatchingEventSummaries(
 function createExportFilePath(
     issueContext: IssueExportContext,
     exportKind: "events" | "fields",
-    outputDirectory?: string
+    outputDirectory?: string,
 ): string {
     const baseDirectory = outputDirectory
         ? path.resolve(process.cwd(), outputDirectory)
@@ -609,17 +649,20 @@ function createExportFilePath(
 
     const timestampLabel = new Date().toISOString().replace(/[:.]/g, "-");
     const sinceLabel = sanitizeFileNamePart(issueContext.sinceUtc);
+    const untilLabel = issueContext.untilUtc
+        ? `-until-${sanitizeFileNamePart(issueContext.untilUtc)}`
+        : "";
     const issueLabel = sanitizeFileNamePart(issueContext.issueId);
 
     return path.join(
         baseDirectory,
-        `${exportKind}-issue-${issueLabel}-since-${sinceLabel}-${timestampLabel}.jsonl`
+        `${exportKind}-issue-${issueLabel}-since-${sinceLabel}${untilLabel}-${timestampLabel}.jsonl`,
     );
 }
 
 function createEventExportLine(
     eventPayload: JsonRecord,
-    issueContext: IssueExportContext
+    issueContext: IssueExportContext,
 ): string {
     const exportRecord = {
         issueId: issueContext.issueId,
@@ -636,7 +679,7 @@ function createEventExportLine(
 function createFieldExportLine(
     eventPayload: JsonRecord,
     issueContext: IssueExportContext,
-    fieldPaths: string[]
+    fieldPaths: string[],
 ): string | null {
     const extractionResult = extractFieldsFromEvent(eventPayload, fieldPaths);
     if (Object.keys(extractionResult.extractedFields).length === 0) {
@@ -670,7 +713,7 @@ async function exportMatchingEvents(
     issueContext: IssueExportContext,
     matchingSummaries: JsonRecord[],
     exportPath: string,
-    lineFactory: (eventPayload: JsonRecord) => string | null
+    lineFactory: (eventPayload: JsonRecord) => string | null,
 ): Promise<number> {
     let processedEventCount = 0;
     const pendingLines: string[] = new Array(matchingSummaries.length);
@@ -679,8 +722,9 @@ async function exportMatchingEvents(
         matchingSummaries,
         DEFAULT_FETCH_CONCURRENCY,
         async (eventSummary, summaryIndex) => {
-            const eventIdentifier =
-                String(eventSummary.eventID || eventSummary.id || "").trim();
+            const eventIdentifier = String(
+                eventSummary.eventID || eventSummary.id || "",
+            ).trim();
 
             if (!eventIdentifier) {
                 return;
@@ -689,7 +733,7 @@ async function exportMatchingEvents(
             const eventPayload = (await apiClient.getProjectEvent(
                 issueContext.organizationSlug,
                 issueContext.projectSlug,
-                eventIdentifier
+                eventIdentifier,
             )) as JsonRecord;
 
             const exportLine = lineFactory(eventPayload);
@@ -697,7 +741,7 @@ async function exportMatchingEvents(
                 pendingLines[summaryIndex] = exportLine;
                 processedEventCount += 1;
             }
-        }
+        },
     );
 
     const fileContent = pendingLines.filter(Boolean).join("\n");
@@ -714,19 +758,21 @@ export async function exportIssueEventsToFile(
         issueIdOrUrl: string;
         organizationSlug: string;
         since: string;
+        until?: string;
         outputDirectory?: string;
-    }
+    },
 ): Promise<FetchIssueEventsResult> {
     const issueContext = await resolveIssueContext(
         apiClient,
         inputValues.issueIdOrUrl,
         inputValues.organizationSlug,
-        inputValues.since
+        inputValues.since,
+        inputValues.until,
     );
     const exportPath = createExportFilePath(
         issueContext,
         "events",
-        inputValues.outputDirectory
+        inputValues.outputDirectory,
     );
 
     await prepareExportFile(exportPath);
@@ -739,7 +785,7 @@ export async function exportIssueEventsToFile(
         issueContext,
         eventSummaries,
         exportPath,
-        (eventPayload) => createEventExportLine(eventPayload, issueContext)
+        (eventPayload) => createEventExportLine(eventPayload, issueContext),
     );
 
     return {
@@ -757,20 +803,22 @@ export async function exportIssueEventFieldsToFile(
         issueIdOrUrl: string;
         organizationSlug: string;
         since: string;
+        until?: string;
         fieldPaths: string[];
         outputDirectory?: string;
-    }
+    },
 ): Promise<FetchIssueEventsResult> {
     const issueContext = await resolveIssueContext(
         apiClient,
         inputValues.issueIdOrUrl,
         inputValues.organizationSlug,
-        inputValues.since
+        inputValues.since,
+        inputValues.until,
     );
     const exportPath = createExportFilePath(
         issueContext,
         "fields",
-        inputValues.outputDirectory
+        inputValues.outputDirectory,
     );
 
     await prepareExportFile(exportPath);
@@ -787,8 +835,8 @@ export async function exportIssueEventFieldsToFile(
             createFieldExportLine(
                 eventPayload,
                 issueContext,
-                inputValues.fieldPaths
-            )
+                inputValues.fieldPaths,
+            ),
     );
 
     return {

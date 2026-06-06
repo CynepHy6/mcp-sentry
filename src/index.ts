@@ -48,7 +48,7 @@ const apiClient = new SentryApiClient(sentryHost, SENTRY_AUTH);
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.2.0",
+    version: "1.2.1",
 });
 
 // List projects tool
@@ -489,6 +489,12 @@ server.tool(
             .describe(
                 "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
             ),
+        until: z
+            .string()
+            .optional()
+            .describe(
+                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive"
+            ),
         output_directory: z
             .string()
             .optional()
@@ -500,11 +506,13 @@ server.tool(
         issue_id_or_url,
         organization_slug,
         since,
+        until,
         output_directory,
     }: {
         issue_id_or_url: string;
         organization_slug: string;
         since: string;
+        until?: string;
         output_directory?: string;
     }) => {
         try {
@@ -512,6 +520,7 @@ server.tool(
                 issueIdOrUrl: issue_id_or_url,
                 organizationSlug: organization_slug,
                 since,
+                until,
                 outputDirectory: output_directory,
             });
 
@@ -528,6 +537,7 @@ server.tool(
                                 project_slug:
                                     exportResult.issueContext.projectSlug,
                                 since_utc: exportResult.issueContext.sinceUtc,
+                                until_utc: exportResult.issueContext.untilUtc,
                                 scanned_event_count:
                                     exportResult.scannedEventCount,
                                 matched_event_count:
@@ -569,6 +579,12 @@ server.tool(
             .describe(
                 "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
             ),
+        until: z
+            .string()
+            .optional()
+            .describe(
+                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive"
+            ),
         field_paths: z
             .array(z.string())
             .min(1)
@@ -586,12 +602,14 @@ server.tool(
         issue_id_or_url,
         organization_slug,
         since,
+        until,
         field_paths,
         output_directory,
     }: {
         issue_id_or_url: string;
         organization_slug: string;
         since: string;
+        until?: string;
         field_paths: string[];
         output_directory?: string;
     }) => {
@@ -600,6 +618,7 @@ server.tool(
                 issueIdOrUrl: issue_id_or_url,
                 organizationSlug: organization_slug,
                 since,
+                until,
                 fieldPaths: field_paths,
                 outputDirectory: output_directory,
             });
@@ -617,6 +636,7 @@ server.tool(
                                 project_slug:
                                     exportResult.issueContext.projectSlug,
                                 since_utc: exportResult.issueContext.sinceUtc,
+                                until_utc: exportResult.issueContext.untilUtc,
                                 scanned_event_count:
                                     exportResult.scannedEventCount,
                                 matched_event_count:
