@@ -24,6 +24,7 @@ import {
     exportIssueEventsToFile,
 } from "./utils/eventExport.js";
 import { ErrorHandler } from "./utils/errorHandler.js";
+import { toolAnnotations } from "./utils/tool-annotations.js";
 
 // Validate environment variables
 const SENTRY_AUTH = process.env.SENTRY_AUTH;
@@ -48,7 +49,7 @@ const sentryClient = new SentrySdkClient(sentryHost, SENTRY_AUTH);
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.4.1",
+    version: "1.5.0",
 });
 
 // List projects tool
@@ -68,6 +69,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("list_projects"),
     async ({
         organization_slug,
         view,
@@ -129,6 +131,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("list_project_issues"),
     async ({
         organization_slug,
         project_slug,
@@ -191,6 +194,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("get_sentry_issue"),
     async ({
         issue_id_or_url,
         organization_slug,
@@ -255,6 +259,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("list_issue_events"),
     async ({
         organization_slug,
         issue_id,
@@ -313,6 +318,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("resolve_short_id"),
     async ({
         organization_slug,
         short_id,
@@ -382,6 +388,7 @@ server.tool(
                 "Поля для извлечения из contexts/extra (например: ['roomId', 'userId', 'message'])"
             ),
     },
+    toolAnnotations("extract_issue_context_data"),
     async ({
         organization_slug,
         issue_id,
@@ -502,6 +509,7 @@ server.tool(
                 "Optional local directory relative to the MCP server working directory"
             ),
     },
+    toolAnnotations("export_issue_events_to_file"),
     async ({
         issue_id_or_url,
         organization_slug,
@@ -598,6 +606,7 @@ server.tool(
                 "Optional local directory relative to the MCP server working directory"
             ),
     },
+    toolAnnotations("extract_issue_event_fields_to_file"),
     async ({
         issue_id_or_url,
         organization_slug,
@@ -688,6 +697,7 @@ server.tool(
             .default("markdown")
             .describe("Output format (default: markdown)"),
     },
+    toolAnnotations("get_sentry_event"),
     async ({
         issue_id_or_url,
         event_id,

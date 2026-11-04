@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0 - 2026-11-04
+
+- У каждого MCP tool есть аннотации: `readOnlyHint: true` у чтения (`list_projects`, `list_project_issues`, `get_sentry_issue`, `list_issue_events`, `resolve_short_id`, `get_sentry_event`, `extract_issue_context_data` — последний файла не пишет, только возвращает JSON), `readOnlyHint: false` и `destructiveHint: false` у `export_issue_events_to_file` и `extract_issue_event_fields_to_file` (создают новый JSONL на диске). Клиент больше не угадывает по имени: читающие tools идут без вопроса человеку.
+- Нижняя граница `@modelcontextprotocol/sdk` — `^1.11.0`: аннотации в `server.tool` появились в этой версии.
+
 ## 1.4.1 - 2026-06-06
 
 - Export-tools: если `until` не передан, верхняя граница окна — текущее UTC-время (`end` всегда уходит в `@sentry/api` `listAnIssue_sEvents`).
