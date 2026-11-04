@@ -18,7 +18,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
     // Несмотря на имя, файла не пишет: собирает поля событий и возвращает JSON в ответе.
     extract_issue_context_data: READ_ONLY,
     // Пишут новый JSONL в tmp/sentry-exports или output_directory; имя с меткой времени до миллисекунд,
-    // уже лежащие файлы не трогают.
+    // поэтому чужой файл не затирают. Два одинаковых экспорта в одну миллисекунду попали бы в один путь.
     export_issue_events_to_file: WRITE,
     extract_issue_event_fields_to_file: WRITE,
     get_sentry_event: READ_ONLY,
