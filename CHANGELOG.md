@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0 - 2026-11-14
+
+- Значение `view` по умолчанию переключено на `"summary"` в `list_projects`, `list_project_issues`, `list_issue_events` и `get_sentry_issue` (с синхронизацией `.describe(...)` в схемах параметров); полный вывод и почасовая таблица `24-Hour Event Distribution` запрашиваются явно через `view: "detailed"`. У `get_sentry_event` дефолт оставлен `"detailed"` (стектрейс и контекст), а для явного `view: "summary"` добавлена компактная сводка события с верхним фреймом стека.
+- В `summary`-вывод `list_project_issues` добавлены числовой `ID` и `Users`, а в `summary`-вывод `get_sentry_issue` — `ID`, `Culprit`, `slug` проекта и версия первого релиза, чтобы триаж и переход к событиям не требовали лишнего вызова `resolve_short_id` или `view: "detailed"`.
+- Zod-схемы параметров вынесены в `src/utils/tool-schemas.ts`; добавлены unit-тесты на дефолты схем и форматтеры (`ProjectFormatter`, `IssueFormatter`, пустые списки и неполные данные API).
+
 ## 1.5.0 - 2026-11-04
 
 - У каждого MCP tool есть аннотации: `readOnlyHint: true` у чтения (`list_projects`, `list_project_issues`, `get_sentry_issue`, `list_issue_events`, `resolve_short_id`, `get_sentry_event`, `extract_issue_context_data` — последний файла не пишет, только возвращает JSON), `readOnlyHint: false` и `destructiveHint: false` у `export_issue_events_to_file` и `extract_issue_event_fields_to_file` (создают новый JSONL на диске; имя уникально до миллисекунды). Клиент больше не угадывает по имени: читающие tools идут без вопроса человеку.

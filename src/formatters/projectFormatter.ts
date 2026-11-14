@@ -7,6 +7,13 @@ export class ProjectFormatter extends BaseFormatter {
     }
 
     formatData(projects: SentryProject[]): string {
+        if (projects.length === 0) {
+            return (
+                this.createHeader("Sentry Projects") +
+                "No projects found.\n"
+            );
+        }
+
         if (this.isDetailed()) {
             return this.formatDetailed(projects);
         }
@@ -31,7 +38,9 @@ export class ProjectFormatter extends BaseFormatter {
                 project.name,
                 project.slug,
                 project.platform || "N/A",
-                project.teams.map((team) => team.name).join(", "),
+                project.teams?.length
+                    ? project.teams.map((team) => team.name).join(", ")
+                    : "None",
                 project.environments?.join(", ") || "None",
                 project.features?.join(", ") || "None",
             ]);
@@ -42,9 +51,11 @@ export class ProjectFormatter extends BaseFormatter {
                 output += `Name: ${project.name}\n`;
                 output += `Slug: ${project.slug}\n`;
                 output += `Platform: ${project.platform || "N/A"}\n`;
-                output += `Teams: ${project.teams
-                    .map((team) => team.name)
-                    .join(", ")}\n`;
+                output += `Teams: ${
+                    project.teams?.length
+                        ? project.teams.map((team) => team.name).join(", ")
+                        : "None"
+                }\n`;
                 output += `Environments: ${
                     project.environments?.join(", ") || "None"
                 }\n`;
