@@ -2,7 +2,7 @@
 
 MCP-сервер для Sentry API. Точка входа — `src/index.ts`. **Node.js ≥ 22** (`engines`, CI, `.nvmrc`). После правок: `npm run compile`, **поднять `version` в `package.json`**, push в `master` (CI → `dist` + git-тег `v{version}`) и reload MCP в Cursor.
 
-Подробности для людей — [README.md](README.md). История версий — [CHANGELOG.md](CHANGELOG.md). План апгрейда на `@sentry/api` — [sentry-api-upgrade.md](sentry-api-upgrade.md).
+Подробности для людей — [README.md](README.md). История версий — [CHANGELOG.md](CHANGELOG.md).
 
 ## Конфигурация
 
@@ -68,23 +68,25 @@ src/
   api/sentryRetry.ts       # retry-хелперы
   api/sentryRetryFetch.ts  # retry поверх fetch для SDK
   formatters/              # markdown/plain formatters
-  utils/                   # errorHandler, eventExport, eventExportDateRange
+  utils/                   # errorHandler, eventExport, eventExportDateRange, tool-annotations, tool-schemas
   types.ts                 # типы ответов Sentry API
 tests/
-  src/                  # unit-тесты utils
+  src/                     # unit-тесты схем, форматтеров, retry и utils
 ```
 
 ## Основные tools
 
-| Tool | Назначение |
-|------|------------|
-| `list_projects` | список проектов организации |
-| `get_sentry_issue` | детали issue по ID или URL |
-| `get_sentry_event` | конкретное событие issue |
-| `list_issue_events` | список событий issue |
-| `extract_issue_context_data` | контекст из всех событий issue |
-| `export_issue_events_to_file` | выгрузка событий в JSONL |
-| `extract_issue_event_fields_to_file` | извлечение полей событий в JSONL |
+| Tool | Назначение | `view` по умолчанию |
+|------|------------|---------------------|
+| `list_projects` | список проектов организации | `summary` |
+| `list_project_issues` | список issue проекта с поиском Sentry query | `summary` |
+| `get_sentry_issue` | сводка или полные детали issue по ID или URL (`view: "detailed"` добавляет таблицу по часам за 24ч, теги и проекты релиза) | `summary` |
+| `list_issue_events` | список событий issue | `summary` |
+| `get_sentry_event` | конкретное событие issue (`detailed` — стектрейс и контекст, `summary` — сводка и верхний фрейм) | `detailed` |
+| `resolve_short_id` | разрешение короткого ID (`PROJECT-123`) в данные issue | — |
+| `extract_issue_context_data` | контекст из всех событий issue | — |
+| `export_issue_events_to_file` | выгрузка событий в JSONL | — |
+| `extract_issue_event_fields_to_file` | извлечение полей событий в JSONL | — |
 
 ## Отладка
 

@@ -15,7 +15,6 @@ try {
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
 import { SentrySdkClient } from "./api/sentrySdkClient.js";
 import { IssueFormatter } from "./formatters/issueFormatter.js";
 import { ProjectFormatter } from "./formatters/projectFormatter.js";
@@ -25,6 +24,7 @@ import {
 } from "./utils/eventExport.js";
 import { ErrorHandler } from "./utils/errorHandler.js";
 import { toolAnnotations } from "./utils/tool-annotations.js";
+import { TOOL_SCHEMAS } from "./utils/tool-schemas.js";
 
 // Validate environment variables
 const SENTRY_AUTH = process.env.SENTRY_AUTH;
@@ -49,26 +49,14 @@ const sentryClient = new SentrySdkClient(sentryHost, SENTRY_AUTH);
 // Initialize server
 const server = new McpServer({
     name: "Sentry",
-    version: "1.5.0",
+    version: "1.6.0",
 });
 
 // List projects tool
 server.tool(
     "list_projects",
     "List accessible Sentry projects. View project slugs, IDs, status, settings, features, and organization details.",
-    {
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization to list projects from"),
-        view: z
-            .enum(["summary", "detailed"])
-            .default("detailed")
-            .describe("View type (default: detailed)"),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.list_projects,
     toolAnnotations("list_projects"),
     async ({
         organization_slug,
@@ -103,34 +91,7 @@ server.tool(
 server.tool(
     "list_project_issues",
     "List issues from a Sentry project. Monitor issue status, severity, frequency, and timing. Supports search queries using Sentry's query syntax. When query is provided, filters issues by status, level, assignment, or text content in title/description. Multiple filters can be combined with spaces. Examples: 'is:unresolved level:error' finds unresolved errors, 'video.skysvc.link' searches for text in issue titles/descriptions, 'assigned:me' finds issues assigned to current user.",
-    {
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the project belongs to"),
-        project_slug: z
-            .string()
-            .describe("The slug of the project to list issues from"),
-        query: z
-            .string()
-            .optional()
-            .describe(
-                "Optional search query to filter issues. Supports Sentry query syntax:\n" +
-                "- Status filters: 'is:unresolved', 'is:resolved', 'is:ignored'\n" +
-                "- Level filters: 'level:error', 'level:fatal', 'level:warning', 'level:info'\n" +
-                "- Assignment: 'assigned:me', 'assigned:username'\n" +
-                "- Text search: any text string searches in issue titles and descriptions (e.g., 'video.skysvc.link', '404', 'timeout')\n" +
-                "- Combine filters: use spaces to combine multiple filters (e.g., 'is:unresolved level:error video')\n" +
-                "Examples: 'is:unresolved level:error' (unresolved errors), 'video.skysvc.link' (text search), 'assigned:me' (my issues), 'is:unresolved level:error 404' (unresolved errors containing '404')."
-            ),
-        view: z
-            .enum(["summary", "detailed"])
-            .default("detailed")
-            .describe("View type (default: detailed)"),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.list_project_issues,
     toolAnnotations("list_project_issues"),
     async ({
         organization_slug,
@@ -176,24 +137,7 @@ server.tool(
 server.tool(
     "get_sentry_issue",
     "Retrieve and analyze a Sentry issue. Accepts issue URL or ID.",
-    {
-        issue_id_or_url: z
-            .string()
-            .describe(
-                "Either a full Sentry issue URL or just the numeric issue ID"
-            ),
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        view: z
-            .enum(["summary", "detailed"])
-            .default("detailed")
-            .describe("View type (default: detailed)"),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.get_sentry_issue,
     toolAnnotations("get_sentry_issue"),
     async ({
         issue_id_or_url,
@@ -245,20 +189,7 @@ server.tool(
 server.tool(
     "list_issue_events",
     "List events for a specific Sentry issue. Analyze event details, metadata, and patterns.",
-    {
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        issue_id: z.string().describe("The ID of the issue to list events for"),
-        view: z
-            .enum(["summary", "detailed"])
-            .default("detailed")
-            .describe("View type (default: detailed)"),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.list_issue_events,
     toolAnnotations("list_issue_events"),
     async ({
         organization_slug,
@@ -304,20 +235,7 @@ server.tool(
 server.tool(
     "resolve_short_id",
     "Retrieve details about an issue using its short ID. Maps short IDs to issue details, project context, and status.",
-    {
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        short_id: z
-            .string()
-            .describe(
-                "The short ID of the issue to resolve (e.g., PROJECT-123)"
-            ),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.resolve_short_id,
     toolAnnotations("resolve_short_id"),
     async ({
         organization_slug,
@@ -375,19 +293,7 @@ server.tool(
 server.tool(
     "extract_issue_context_data",
     "Извлекает данные из Additional Context всех событий issue одним запросом",
-    {
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        issue_id: z
-            .string()
-            .describe("The ID of the issue to extract context data from"),
-        extract_fields: z
-            .array(z.string())
-            .describe(
-                "Поля для извлечения из contexts/extra (например: ['roomId', 'userId', 'message'])"
-            ),
-    },
+    TOOL_SCHEMAS.extract_issue_context_data,
     toolAnnotations("extract_issue_context_data"),
     async ({
         organization_slug,
@@ -482,33 +388,7 @@ server.tool(
 server.tool(
     "export_issue_events_to_file",
     "Выгружает все события issue, начиная с даты since в UTC, в локальный JSONL-файл и возвращает путь к нему.",
-    {
-        issue_id_or_url: z
-            .string()
-            .describe(
-                "Either a full Sentry issue URL or just the numeric issue ID"
-            ),
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        since: z
-            .string()
-            .describe(
-                "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
-            ),
-        until: z
-            .string()
-            .optional()
-            .describe(
-                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive. Defaults to current UTC time when omitted."
-            ),
-        output_directory: z
-            .string()
-            .optional()
-            .describe(
-                "Optional local directory relative to the MCP server working directory"
-            ),
-    },
+    TOOL_SCHEMAS.export_issue_events_to_file,
     toolAnnotations("export_issue_events_to_file"),
     async ({
         issue_id_or_url,
@@ -573,39 +453,7 @@ server.tool(
 server.tool(
     "extract_issue_event_fields_to_file",
     "Извлекает поля из всех событий issue, начиная с даты since в UTC, сохраняет результат в локальный JSONL-файл и возвращает путь к нему. Каждая запись дополнительно включает eventTitle и exceptionMessage, если они есть в event payload.",
-    {
-        issue_id_or_url: z
-            .string()
-            .describe(
-                "Either a full Sentry issue URL or just the numeric issue ID"
-            ),
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        since: z
-            .string()
-            .describe(
-                "UTC lower bound. Examples: 2026-04-15 or 2026-04-15T00:00:00Z"
-            ),
-        until: z
-            .string()
-            .optional()
-            .describe(
-                "UTC upper bound. Plain date YYYY-MM-DD means end of that day inclusive. Defaults to current UTC time when omitted."
-            ),
-        field_paths: z
-            .array(z.string())
-            .min(1)
-            .describe(
-                "Field names or dot paths to extract. Example: ['requestParams', 'contexts.trace.trace_id']"
-            ),
-        output_directory: z
-            .string()
-            .optional()
-            .describe(
-                "Optional local directory relative to the MCP server working directory"
-            ),
-    },
+    TOOL_SCHEMAS.extract_issue_event_fields_to_file,
     toolAnnotations("extract_issue_event_fields_to_file"),
     async ({
         issue_id_or_url,
@@ -678,25 +526,7 @@ server.tool(
 server.tool(
     "get_sentry_event",
     "Retrieve a specific Sentry event from an issue. Requires issue ID/URL and event ID. For URLs with events, event_id can be extracted automatically.",
-    {
-        issue_id_or_url: z
-            .string()
-            .describe(
-                "Either a full Sentry issue URL or just the numeric issue ID"
-            ),
-        event_id: z.string().describe("The specific event ID to retrieve"),
-        organization_slug: z
-            .string()
-            .describe("The slug of the organization the issue belongs to"),
-        view: z
-            .enum(["summary", "detailed"])
-            .default("detailed")
-            .describe("View type (default: detailed)"),
-        format: z
-            .enum(["plain", "markdown"])
-            .default("markdown")
-            .describe("Output format (default: markdown)"),
-    },
+    TOOL_SCHEMAS.get_sentry_event,
     toolAnnotations("get_sentry_event"),
     async ({
         issue_id_or_url,
